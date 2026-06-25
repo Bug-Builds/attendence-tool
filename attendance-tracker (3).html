@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Attendance Tracker</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;overflow:hidden;background:#0f172a;color:#f8fafc;font-family:-apple-system,'Inter',system-ui,sans-serif}
+    #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto}
+
+    /* Header */
+    .header{padding:52px 20px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+    @supports(padding-top:env(safe-area-inset-top)){.header{padding-top:calc(14px + env(safe-area-inset-top))}}
+    .header-title{font-size:22px;font-weight:800;letter-spacing:-.5px}
+    .header-sub{font-size:11px;color:#64748b;letter-spacing:2px;text-transform:uppercase}
+    .sync-badge{background:#1e293b;border-radius:10px;padding:6px 11px;font-size:11px;color:#94a3b8;font-weight:600;text-align:right;line-height:1.5;cursor:pointer}
+    .sync-badge.ok{color:#22c55e}
+    .sync-badge.err{color:#ef4444}
+    .sync-badge.syncing{color:#f59e0b}
+
+    /* Nav */
+    .nav{display:flex;gap:6px;padding:10px 20px;flex-shrink:0}
+    .nav-btn{flex:1;padding:9px 0;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s,color .15s}
+    .nav-btn.active{background:#6366f1;color:#fff}
+    .nav-btn.inactive{background:#1e293b;color:#64748b}
+
+    /* Content */
+    .content{flex:1;overflow-y:auto;padding:12px 20px 90px;-webkit-overflow-scrolling:touch}
+    @supports(padding-bottom:env(safe-area-inset-bottom)){.content{padding-bottom:calc(90px + env(safe-area-inset-bottom))}}
+    ::-webkit-scrollbar{display:none}
+
+    /* Setup screen */
+    .setup-card{background:#1e293b;border-radius:18px;padding:20px;margin-bottom:14px}
+    .setup-title{font-size:16px;font-weight:800;margin-bottom:6px}
+    .setup-sub{font-size:12px;color:#64748b;line-height:1.7;margin-bottom:14px}
+    .setup-step{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start}
+    .step-num{background:#6366f1;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;margin-top:2px}
+    .step-text{font-size:13px;line-height:1.6;color:#94a3b8}
+    .step-text strong{color:#f8fafc}
+    .step-text a{color:#6366f1;text-decoration:none}
+    .url-input{width:100%;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:12px 14px;color:#f8fafc;font-size:13px;outline:none;margin-top:8px;word-break:break-all}
+    .url-input:focus{border-color:#6366f1}
+    .connect-btn{width:100%;padding:14px;background:#6366f1;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px}
+    .connect-btn:active{transform:scale(.97)}
+    .code-box{background:#0f172a;border-radius:10px;padding:12px;font-size:11px;font-family:monospace;color:#22c55e;line-height:1.6;white-space:pre-wrap;word-break:break-all;margin-top:8px;border:1px solid #1e3a5f;max-height:160px;overflow-y:auto}
+    .copy-btn{width:100%;padding:10px;background:#334155;color:#f8fafc;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px}
+
+    /* Today */
+    .today-card{background:linear-gradient(135deg,#1e3a5f,#1e293b);border:1px solid #334155;border-radius:18px;padding:18px;margin-bottom:14px}
+    .today-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .today-date{font-size:15px;font-weight:700}
+    .today-status{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px}
+    .clock-row{display:flex;gap:10px;margin-bottom:12px}
+    .clock-box{flex:1;background:#0f172a;border-radius:12px;padding:12px;text-align:center}
+    .clock-lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+    .clock-val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+    .clock-edit{font-size:10px;color:#6366f1;margin-top:3px;cursor:pointer}
+    .hours-row{display:flex;align-items:center;justify-content:space-between;background:#0f172a;border-radius:12px;padding:12px 14px;margin-bottom:12px}
+    .hours-big{font-size:28px;font-weight:900;color:#6366f1;font-variant-numeric:tabular-nums}
+    .he-lbl{font-size:10px;color:#64748b}
+    .he-val{font-size:18px;font-weight:800;color:#22c55e}
+    .action-row{display:flex;gap:8px;margin-bottom:8px}
+    .action-btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:transform .1s}
+    .action-btn:active{transform:scale(.95)}
+    .btn-in{background:#22c55e;color:#fff}
+    .btn-out{background:#ef4444;color:#fff}
+    .btn-off{background:#1e293b;color:#475569;cursor:default}
+    .btn-hol{background:#3b82f6;color:#fff}
+    .btn-lv{background:#8b5cf6;color:#fff}
+    .btn-abs{background:#ef444430;color:#ef4444;border:1.5px solid #ef4444}
+
+    /* Modal */
+    .modal-overlay{position:fixed;inset:0;background:#00000099;z-index:200;display:flex;align-items:flex-end;justify-content:center}
+    .modal{background:#1e293b;border-radius:20px 20px 0 0;padding:24px 20px 44px;width:100%;max-width:480px}
+    .modal-title{font-weight:800;font-size:16px;margin-bottom:16px}
+    .time-inputs{display:flex;gap:10px;align-items:center;margin-bottom:20px}
+    .time-inp{flex:1;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:14px;color:#f8fafc;font-size:26px;font-weight:800;text-align:center;outline:none;font-variant-numeric:tabular-nums}
+    .time-inp:focus{border-color:#6366f1}
+    .time-sep{font-size:26px;font-weight:800;color:#64748b}
+    .modal-btns{display:flex;gap:10px}
+    .modal-btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer}
+    .mbtn-cancel{background:#0f172a;color:#94a3b8}
+    .mbtn-save{background:#6366f1;color:#fff}
+
+    /* Calendar */
+    .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .month-nav button{background:#1e293b;border:none;color:#94a3b8;border-radius:8px;width:36px;height:36px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .month-label{font-weight:800;font-size:18px}
+    .day-headers{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
+    .day-hdr{text-align:center;font-size:11px;color:#475569;font-weight:700;padding:4px 0}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+    .cal-empty{aspect-ratio:1}
+    .cal-day{aspect-ratio:1;border-radius:10px;border:2px solid transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;position:relative}
+    .cal-day:active{transform:scale(.93)}
+    .cal-future{color:#1e293b!important;cursor:default;background:transparent!important}
+    .cal-today-ring{border-color:#6366f1!important}
+    .cal-selected{border-color:#a5b4fc!important}
+    .today-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:#6366f1}
+    .cal-icon{font-size:9px;opacity:.85;margin-top:1px}
+    .cal-hrs{font-size:8px;opacity:.65}
+    .day-panel{margin-top:14px;background:#1e293b;border-radius:16px;padding:14px}
+    .dp-title{font-weight:700;margin-bottom:12px;color:#94a3b8;font-size:13px}
+    .dp-time-row{display:flex;gap:8px;margin-bottom:10px}
+    .dp-tbox{flex:1;background:#0f172a;border-radius:10px;padding:10px;text-align:center;cursor:pointer}
+    .dp-tbox:active{opacity:.7}
+    .dp-tlbl{font-size:10px;color:#64748b;margin-bottom:3px}
+    .dp-tval{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+    .dp-thint{font-size:9px;color:#6366f1;margin-top:2px}
+    .mark-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .mark-btn{padding:11px 6px;border-radius:10px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer}
+    .mark-btn:active{transform:scale(.95)}
+
+    /* Stats */
+    .salary-card{background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:18px;padding:20px;margin-bottom:14px}
+    .sc-lbl{font-size:12px;opacity:.8;margin-bottom:4px}
+    .sc-amount{font-size:36px;font-weight:900;letter-spacing:-1px}
+    .sc-sub{font-size:12px;opacity:.7;margin-top:6px}
+    .row-card{display:flex;align-items:center;justify-content:space-between;background:#1e293b;border-radius:12px;padding:13px 14px;margin-bottom:8px}
+    .rc-l{font-weight:600;font-size:14px}
+    .rc-v{font-weight:800;font-size:15px}
+    .rc-u{font-size:11px;color:#64748b;margin-left:2px}
+    .bd-card{background:#1e293b;border-radius:14px;padding:16px;margin-top:8px}
+    .bd-title{font-weight:700;margin-bottom:12px;color:#94a3b8;font-size:13px}
+    .bd-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px}
+    .bd-row:last-child{margin-bottom:0}
+    .bd-val{font-weight:700}
+
+    /* Settings */
+    .sc2{background:#1e293b;border-radius:14px;padding:16px;margin-bottom:12px}
+    .sl{font-size:12px;color:#94a3b8;display:block;margin-bottom:8px;font-weight:600}
+    .si{width:100%;background:#0f172a;border:1.5px solid #334155;border-radius:10px;padding:12px 14px;color:#f8fafc;font-size:16px;outline:none}
+    .si:focus{border-color:#6366f1}
+    .cur-row{display:flex;gap:8px}
+    .cur-btn{flex:1;padding:11px 0;border-radius:10px;border:2px solid #334155;background:transparent;color:#f8fafc;font-size:16px;cursor:pointer}
+    .cur-btn.sel{border-color:#6366f1;background:#4f46e520}
+    .ri{width:100%;accent-color:#6366f1;margin-top:6px;cursor:pointer}
+    .rl2{display:flex;justify-content:space-between;font-size:11px;color:#475569;margin-top:4px}
+    .seg{display:flex;gap:6px;margin-bottom:12px}
+    .seg-btn{flex:1;padding:9px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:#0f172a;color:#64748b}
+    .seg-btn.on{background:#6366f1;color:#fff}
+    .info-c{background:#1e293b;border-radius:14px;padding:16px}
+    .info-t{font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:600}
+    .info-b{font-size:12px;color:#64748b;line-height:1.9}
+    .danger-btn{width:100%;padding:13px;background:#ef444420;color:#ef4444;border:1.5px solid #ef4444;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+
+    /* Quick stats */
+    .qstats{display:flex;gap:6px;margin-top:14px}
+    .qpill{flex:1;background:#1e293b;border-radius:12px;padding:10px 4px;text-align:center}
+    .qnum{font-size:17px;font-weight:800}
+    .qlbl{font-size:9px;color:#64748b;margin-top:2px}
+
+    /* Spinner */
+    .spinner{display:inline-block;width:14px;height:14px;border:2px solid #334155;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Toast */
+    #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#6366f1;color:#fff;border-radius:20px;padding:10px 22px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 4px 20px #6366f166;transition:transform .25s,opacity .25s;opacity:0;white-space:nowrap}
+    #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    #toast.err-toast{background:#ef4444}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div>
+      <div class="header-sub">Daily</div>
+      <div class="header-title">Attendance Tracker</div>
+    </div>
+    <div class="sync-badge" id="sync-badge" onclick="syncNow()">☁️ Sync</div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active"   id="nav-today"    onclick="switchView('today')">⏱ Today</button>
+    <button class="nav-btn inactive" id="nav-calendar" onclick="switchView('calendar')">📅 Calendar</button>
+    <button class="nav-btn inactive" id="nav-stats"    onclick="switchView('stats')">📊 Summary</button>
+    <button class="nav-btn inactive" id="nav-settings" onclick="switchView('settings')">⚙️</button>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+<div id="modal-root"></div>
+<div id="toast"></div>
+
+<script>
+// ─── Constants ─────────────────────────────────────────────────────────────
+const MONTHS   = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS_S = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS_S   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const STATUS = {
+  present:{label:"Present", color:"#22c55e",bg:"#dcfce7",icon:"✓"},
+  absent: {label:"Absent",  color:"#ef4444",bg:"#fee2e2",icon:"✗"},
+  half:   {label:"Half Day",color:"#f59e0b",bg:"#fef3c7",icon:"½"},
+  leave:  {label:"Leave",   color:"#8b5cf6",bg:"#ede9fe",icon:"L"},
+  holiday:{label:"Holiday", color:"#3b82f6",bg:"#dbeafe",icon:"H"},
+  none:   {label:"—",       color:"#334155",bg:"#1e293b",icon:"·"},
+};
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let records  = JSON.parse(localStorage.getItem('att_records')  || '{}');
+let settings = JSON.parse(localStorage.getItem('att_settings') || JSON.stringify({
+  hourlyRate:0, monthlySalary:30000, workHoursPerDay:8,
+  currency:'₹', paidLeaves:1, rateMode:'monthly',
+  sheetUrl:'', connected:false, lastSync:null
+}));
+
+const now     = new Date();
+let curYear   = now.getFullYear();
+let curMonth  = now.getMonth();
+let selDay    = null;
+let curView   = 'today';
+let tickTimer = null;
+let syncing   = false;
+let pendingSync = false; // dirty flag
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function dkey(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function todayKey(){return dkey(now.getFullYear(),now.getMonth(),now.getDate())}
+function calKey(d){return dkey(curYear,curMonth,d)}
+function dim(y,m){return new Date(y,m+1,0).getDate()}
+function fday(y,m){return new Date(y,m,1).getDay()}
+function isToday(d){return d===now.getDate()&&curMonth===now.getMonth()&&curYear===now.getFullYear()}
+function isPast(y,m,d){return new Date(y,m,d)<=now}
+function pad(n){return String(n).padStart(2,'0')}
+function nowHHMM(){const d=new Date();return pad(d.getHours())+':'+pad(d.getMinutes())}
+
+function saveRec(){localStorage.setItem('att_records',JSON.stringify(records));pendingSync=true}
+function saveSet(){localStorage.setItem('att_settings',JSON.stringify(settings))}
+
+function hourlyRate(){
+  if(settings.rateMode==='hourly') return +(settings.hourlyRate)||0;
+  return (+(settings.monthlySalary)||0)/(26*(+(settings.workHoursPerDay)||8));
+}
+function calcHours(ci,co){
+  if(!ci||!co) return 0;
+  const[ih,im]=ci.split(':').map(Number),[oh,om]=co.split(':').map(Number);
+  return Math.max(0,((oh*60+om)-(ih*60+im))/60);
+}
+function fmtH(h){const hr=Math.floor(h),mn=Math.round((h-hr)*60);if(hr===0)return mn+'m';if(mn===0)return hr+'h';return hr+'h '+mn+'m'}
+function fmtTime(t){return t||'--:--'}
+
+// ─── Google Sheets Sync ────────────────────────────────────────────────────
+function getApiUrl(){
+  let u=settings.sheetUrl||'';
+  // Accept full published URL or just the script ID
+  if(u.includes('script.google.com/macros/s/')) return u.split('?')[0];
+  return u;
+}
+
+async function syncNow(silent=false){
+  if(!settings.sheetUrl){if(!silent)showToast('No sheet connected yet');return}
+  if(syncing) return;
+  syncing=true;
+  updateSyncBadge('syncing');
+  try {
+    // Push all local records to sheet
+    const url=getApiUrl();
+    const res=await fetch(url+'?action=sync',{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({records,settings:{
+        monthlySalary:settings.monthlySalary,
+        hourlyRate:settings.hourlyRate,
+        workHoursPerDay:settings.workHoursPerDay,
+        currency:settings.currency,
+        paidLeaves:settings.paidLeaves,
+        rateMode:settings.rateMode
+      }})
+    });
+    const json=await res.json();
+    if(json.status==='ok'){
+      // Merge sheet data (sheet is source of truth for records from other devices)
+      if(json.records) {
+        records={...json.records,...records}; // local wins for same key
+        localStorage.setItem('att_records',JSON.stringify(records));
+      }
+      settings.lastSync=new Date().toISOString();
+      settings.connected=true;
+      saveSet();
+      pendingSync=false;
+      updateSyncBadge('ok');
+      if(!silent) showToast('✓ Synced with Google Sheet');
+    } else {
+      throw new Error(json.error||'Sync failed');
+    }
+  } catch(e){
+    updateSyncBadge('err');
+    if(!silent) showToast('Sync failed: '+e.message,'err');
+  }
+  syncing=false;
+}
+
+async function pullFromSheet(){
+  if(!settings.sheetUrl) return;
+  try {
+    const url=getApiUrl();
+    const res=await fetch(url+'?action=pull&t='+Date.now());
+    const json=await res.json();
+    if(json.status==='ok'&&json.records){
+      records={...records,...json.records};
+      localStorage.setItem('att_records',JSON.stringify(records));
+      if(json.settings){
+        const s=json.settings;
+        settings.monthlySalary=s.monthlySalary||settings.monthlySalary;
+        settings.hourlyRate=s.hourlyRate||settings.hourlyRate;
+        settings.currency=s.currency||settings.currency;
+        settings.paidLeaves=s.paidLeaves||settings.paidLeaves;
+        settings.rateMode=s.rateMode||settings.rateMode;
+        settings.workHoursPerDay=s.workHoursPerDay||settings.workHoursPerDay;
+        saveSet();
+      }
+      settings.lastSync=new Date().toISOString();
+      settings.connected=true;
+      saveSet();
+      updateSyncBadge('ok');
+      render();
+    }
+  } catch(e){ updateSyncBadge('err'); }
+}
+
+function updateSyncBadge(state){
+  const el=document.getElementById('sync-badge');
+  if(!el) return;
+  el.className='sync-badge '+state;
+  if(state==='ok'){
+    const t=settings.lastSync?new Date(settings.lastSync).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'now';
+    el.innerHTML='✓ Synced '+t;
+  } else if(state==='syncing'){
+    el.innerHTML='<span class="spinner"></span> Syncing';
+  } else if(state==='err'){
+    el.innerHTML='⚠ Sync error';
+  } else {
+    el.innerHTML=settings.sheetUrl?'☁️ Tap to sync':'☁️ Setup';
+  }
+}
+
+// Auto-sync every 2 minutes if connected
+setInterval(()=>{ if(settings.sheetUrl&&pendingSync) syncNow(true); },120000);
+
+// ─── View Switch ───────────────────────────────────────────────────────────
+function switchView(v){
+  curView=v; selDay=null;
+  clearInterval(tickTimer);
+  ['today','calendar','stats','settings'].forEach(n=>{
+    const el=document.getElementById('nav-'+n);
+    if(el) el.className='nav-btn '+(n===v?'active':'inactive');
+  });
+  render();
+  if(v==='today') startTick();
+}
+
+function render(){
+  updateSyncBadge(settings.sheetUrl?(settings.connected?'ok':'err'):'idle');
+  const c=document.getElementById('content');
+  if(!settings.sheetUrl&&curView!=='settings'){c.innerHTML=setupPrompt();return}
+  if(curView==='today')    c.innerHTML=viewToday();
+  if(curView==='calendar') c.innerHTML=viewCalendar();
+  if(curView==='stats')    c.innerHTML=viewStats();
+  if(curView==='settings') c.innerHTML=viewSettings();
+}
+
+// ─── SETUP PROMPT ──────────────────────────────────────────────────────────
+const APPS_SCRIPT = `// Attendance Tracker - Google Apps Script
+// Paste this in Extensions > Apps Script, then Deploy > New Deployment
+
+const SHEET_NAME = 'Attendance';
+const SETTINGS_SHEET = 'Settings';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Save records
+    const sh = getOrCreate(ss, SHEET_NAME);
+    const records = data.records || {};
+    const rows = [['Date Key','Status','Check In','Check Out','Hours','Earned']];
+    const hr = calcHourlyRate(data.settings || {});
+    for (const [k, v] of Object.entries(records)) {
+      const hours = calcHours(v.checkIn, v.checkOut);
+      rows.push([k, v.status||'', v.checkIn||'', v.checkOut||'', hours.toFixed(2), (hours*hr).toFixed(2)]);
+    }
+    sh.clearContents();
+    sh.getRange(1, 1, rows.length, 6).setValues(rows);
+    sh.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+    sh.autoResizeColumns(1, 6);
+    
+    // Save settings
+    if (data.settings) {
+      const ss2 = getOrCreate(ss, SETTINGS_SHEET);
+      ss2.clearContents();
+      const srows = Object.entries(data.settings).map(([k,v])=>[k,v]);
+      ss2.getRange(1,1,srows.length,2).setValues(srows);
+    }
+    
+    // Return merged records
+    const existing = readRecords(sh);
+    return jsonResponse({status:'ok', records: existing});
+  } catch(err) {
+    return jsonResponse({status:'error', error: err.message});
+  }
+}
+
+function doGet(e) {
+  try {
+    const action = e.parameter.action || 'pull';
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (action === 'pull') {
+      const sh = getOrCreate(ss, SHEET_NAME);
+      const records = readRecords(sh);
+      const settings = readSettings(ss);
+      return jsonResponse({status:'ok', records, settings});
+    }
+    return jsonResponse({status:'ok'});
+  } catch(err) {
+    return jsonResponse({status:'error', error: err.message});
+  }
+}
+
+function readRecords(sh) {
+  const data = sh.getDataRange().getValues();
+  const result = {};
+  for (let i = 1; i < data.length; i++) {
+    const [key, status, ci, co] = data[i];
+    if (key) result[key] = {status: status||'none', checkIn: ci||'', checkOut: co||''};
+  }
+  return result;
+}
+
+function readSettings(ss) {
+  try {
+    const sh = ss.getSheetByName(SETTINGS_SHEET);
+    if (!sh) return {};
+    const data = sh.getDataRange().getValues();
+    const s = {};
+    data.forEach(([k,v])=>{ if(k) s[k]=v; });
+    return s;
+  } catch(e) { return {}; }
+}
+
+function getOrCreate(ss, name) {
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+
+function calcHours(ci, co) {
+  if (!ci || !co) return 0;
+  const [ih,im] = ci.split(':').map(Number);
+  const [oh,om] = co.split(':').map(Number);
+  return Math.max(0, ((oh*60+om) - (ih*60+im)) / 60);
+}
+
+function calcHourlyRate(s) {
+  if (s.rateMode === 'hourly') return +(s.hourlyRate)||0;
+  return (+(s.monthlySalary)||0) / (26 * (+(s.workHoursPerDay)||8));
+}
+
+function jsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function setupPrompt(){
+  return `<div class="setup-card">
+    <div class="setup-title">🔗 Connect Google Sheet</div>
+    <div class="setup-sub">Your data will be saved to your own Google Sheet — never lost, accessible anywhere.</div>
+
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-text"><strong>Open Google Sheets</strong><br>Go to <a href="https://sheets.new" target="_blank">sheets.new</a> to create a new sheet</div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-text"><strong>Open Apps Script</strong><br>Click <strong>Extensions → Apps Script</strong> in the menu</div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-text"><strong>Paste the script below</strong><br>Delete existing code, paste this, then click 💾 Save</div>
+    </div>
+    <div class="code-box" id="script-code">${APPS_SCRIPT.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <button class="copy-btn" onclick="copyScript()">📋 Copy Script</button>
+
+    <div class="setup-step" style="margin-top:16px">
+      <div class="step-num">4</div>
+      <div class="step-text"><strong>Deploy it</strong><br>Click <strong>Deploy → New Deployment</strong> → Type: <strong>Web App</strong> → Execute as: <strong>Me</strong> → Who has access: <strong>Anyone</strong> → Click Deploy → Authorize</div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">5</div>
+      <div class="step-text"><strong>Copy the Web App URL</strong><br>Paste it below and tap Connect</div>
+    </div>
+    <input class="url-input" id="sheet-url-input" placeholder="https://script.google.com/macros/s/..." type="url"/>
+    <button class="connect-btn" onclick="connectSheet()">🔗 Connect & Sync</button>
+  </div>`;
+}
+
+function copyScript(){
+  navigator.clipboard.writeText(APPS_SCRIPT).then(()=>showToast('Script copied!')).catch(()=>{
+    const el=document.getElementById('script-code');
+    const range=document.createRange(); range.selectNode(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+    showToast('Select all & copy the code above');
+  });
+}
+
+async function connectSheet(){
+  const url=document.getElementById('sheet-url-input').value.trim();
+  if(!url||!url.includes('script.google.com')){showToast('Please paste a valid Apps Script URL','err');return}
+  settings.sheetUrl=url; settings.connected=false; saveSet();
+  showToast('Connecting...');
+  await pullFromSheet();
+  if(settings.connected){ showToast('✓ Connected! Data synced.'); switchView('today'); }
+  else showToast('Connection failed — check the URL & deployment settings','err');
+}
+
+// ─── TODAY ─────────────────────────────────────────────────────────────────
+function viewToday(){
+  const tk=todayKey(),rec=records[tk]||{};
+  const st=rec.status||'none',s=STATUS[st];
+  const ci=rec.checkIn||null,co=rec.checkOut||null;
+  const hrs=calcHours(ci,co),earned=hrs*hourlyRate();
+  const dayStr=DAYS_S[now.getDay()]+', '+MONTHS_S[now.getMonth()]+' '+now.getDate();
+
+  const badge=st!=='none'
+    ?`<span class="today-status" style="background:${s.bg}22;color:${s.color}">${s.icon} ${s.label}</span>`
+    :`<span class="today-status" style="background:#1e293b;color:#64748b">Not marked</span>`;
+
+  const clockRow=`<div class="clock-row">
+    <div class="clock-box">
+      <div class="clock-lbl">Check In</div>
+      <div class="clock-val" style="color:${ci?'#22c55e':'#475569'}">${fmtTime(ci)}</div>
+      ${ci?'<div class="clock-edit" onclick="openModal(\'today\',\'in\')">✏️ Edit</div>':''}
+    </div>
+    <div class="clock-box" style="flex:.7;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div id="live" style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:#94a3b8;text-align:center;line-height:1.5"></div>
+    </div>
+    <div class="clock-box">
+      <div class="clock-lbl">Check Out</div>
+      <div class="clock-val" style="color:${co?'#ef4444':'#475569'}">${fmtTime(co)}</div>
+      ${co?'<div class="clock-edit" onclick="openModal(\'today\',\'out\')">✏️ Edit</div>':''}
+    </div>
+  </div>`;
+
+  const hoursRow=`<div class="hours-row">
+    <div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:2px">Hours worked</div>
+      <div class="hours-big">${hrs>0?fmtH(hrs):'—'}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="he-lbl">Earned today</div>
+      <div class="he-val">${hrs>0?settings.currency+earned.toLocaleString('en-IN',{maximumFractionDigits:0}):'—'}</div>
+    </div>
+  </div>`;
+
+  let actions='';
+  if(st==='holiday'||st==='leave'||st==='absent'){
+    actions=`<div class="action-row">
+      <button class="action-btn btn-off" style="flex:2">📌 ${s.label}</button>
+      <button class="action-btn" style="background:#334155;color:#94a3b8;flex:1" onclick="clearToday()">Clear</button>
+    </div>`;
+  } else {
+    const canIn=!ci,canOut=ci&&!co;
+    actions=`<div class="action-row">
+      <button class="action-btn ${canIn?'btn-in':'btn-off'}" onclick="${canIn?'doCheckIn()':''}">${ci?'✓ Checked In':'▶ Check In'}</button>
+      <button class="action-btn ${canOut?'btn-out':'btn-off'}" onclick="${canOut?'doCheckOut()':''}">${co?'■ Checked Out':'■ Check Out'}</button>
+    </div>
+    <div class="action-row">
+      <button class="action-btn btn-hol" onclick="markToday('holiday')">H Holiday</button>
+      <button class="action-btn btn-lv"  onclick="markToday('leave')">L Leave</button>
+      <button class="action-btn btn-abs" onclick="markToday('absent')">✗ Absent</button>
+    </div>`;
+  }
+
+  return `<div class="today-card">
+    <div class="today-header"><div class="today-date">${dayStr}</div>${badge}</div>
+    ${clockRow}${hoursRow}${actions}
+  </div>${miniSummary()}`;
+}
+
+function miniSummary(){
+  const st=calcStatsFor(now.getFullYear(),now.getMonth()),c=settings.currency;
+  return `<div style="background:#1e293b;border-radius:14px;padding:14px">
+    <div style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:10px">${MONTHS_S[now.getMonth()]} so far</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1;background:#0f172a;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:#6366f1">${fmtH(st.totalHours)}</div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">Total Hours</div>
+      </div>
+      <div style="flex:1;background:#0f172a;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:#22c55e">${c}${st.earned.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">Earned</div>
+      </div>
+    </div>
+    <div class="qstats">
+      <div class="qpill"><div class="qnum" style="color:#22c55e">${st.present}</div><div class="qlbl">Present</div></div>
+      <div class="qpill"><div class="qnum" style="color:#ef4444">${st.absent}</div><div class="qlbl">Absent</div></div>
+      <div class="qpill"><div class="qnum" style="color:#f59e0b">${st.half}</div><div class="qlbl">Half</div></div>
+      <div class="qpill"><div class="qnum" style="color:#8b5cf6">${st.leave}</div><div class="qlbl">Leave</div></div>
+    </div>
+  </div>`;
+}
+
+function doCheckIn(){
+  const tk=todayKey();records[tk]=records[tk]||{};
+  records[tk].checkIn=nowHHMM();records[tk].status='present';
+  saveRec();showToast('Checked in at '+records[tk].checkIn);render();startTick();
+  syncNow(true);
+}
+function doCheckOut(){
+  const tk=todayKey();records[tk]=records[tk]||{};
+  records[tk].checkOut=nowHHMM();saveRec();
+  const h=calcHours(records[tk].checkIn,records[tk].checkOut);
+  showToast('Checked out · '+fmtH(h)+' worked');render();syncNow(true);
+}
+function markToday(s){const tk=todayKey();records[tk]={...(records[tk]||{}),status:s};saveRec();showToast('Marked as '+STATUS[s].label);render();syncNow(true)}
+function clearToday(){delete records[todayKey()];saveRec();render();syncNow(true)}
+
+function startTick(){
+  clearInterval(tickTimer);tick();
+  tickTimer=setInterval(tick,1000);
+}
+function tick(){
+  const el=document.getElementById('live');
+  if(!el){clearInterval(tickTimer);return}
+  const d=new Date();
+  el.innerHTML=pad(d.getHours())+':'+pad(d.getMinutes())+'<br><span style="font-size:11px;color:#475569">'+pad(d.getSeconds())+'</span>';
+}
+
+// ─── Modal ─────────────────────────────────────────────────────────────────
+function openModal(ctx,type){
+  let cur='09:00';
+  if(ctx==='today'){const r=records[todayKey()]||{};cur=type==='in'?(r.checkIn||nowHHMM()):(r.checkOut||nowHHMM())}
+  else{const r=records[ctx]||{};cur=type==='in'?(r.checkIn||'09:00'):(r.checkOut||'18:00')}
+  const[hh,mm]=cur.split(':');
+  document.getElementById('modal-root').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-title">Set ${type==='in'?'Check-In':'Check-Out'} Time</div>
+      <div class="time-inputs">
+        <input class="time-inp" id="mh" type="number" min="0" max="23" value="${hh}" inputmode="numeric">
+        <span class="time-sep">:</span>
+        <input class="time-inp" id="mm2" type="number" min="0" max="59" value="${mm}" inputmode="numeric">
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn mbtn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="modal-btn mbtn-save"   onclick="saveModal('${ctx}','${type}')">Save</button>
+      </div>
+    </div>
+  </div>`;
+}
+function saveModal(ctx,type){
+  const h=pad(+document.getElementById('mh').value),m=pad(+document.getElementById('mm2').value);
+  const dk=ctx==='today'?todayKey():ctx;
+  records[dk]=records[dk]||{};
+  if(type==='in')  records[dk].checkIn =h+':'+m;
+  if(type==='out') records[dk].checkOut=h+':'+m;
+  if(!records[dk].status) records[dk].status='present';
+  saveRec();closeModal();render();if(ctx==='today')startTick();
+  showToast('Time set to '+h+':'+m);syncNow(true);
+}
+function closeModal(e){if(e&&e.target!==e.currentTarget)return;document.getElementById('modal-root').innerHTML=''}
+
+// ─── CALENDAR ──────────────────────────────────────────────────────────────
+function viewCalendar(){
+  const d=dim(curYear,curMonth),fd=fday(curYear,curMonth);
+  const hdrs=DAYS_S.map(d=>`<div class="day-hdr">${d}</div>`).join('');
+  const emp=Array(fd).fill('<div class="cal-empty"></div>').join('');
+  let days='';
+  for(let i=1;i<=d;i++){
+    const dk=calKey(i),rec=records[dk]||{};
+    const st=rec.status||'none',s=STATUS[st];
+    const future=!isPast(curYear,curMonth,i);
+    const hrs=calcHours(rec.checkIn,rec.checkOut);
+    const cls=['cal-day',isToday(i)?'cal-today-ring':'',selDay===i?'cal-selected':'',future?'cal-future':''].join(' ');
+    days+=`<div class="${cls}" style="${future?'':'background:'+s.bg+'22;color:'+s.color}" ${future?'':'onclick="selCalDay('+i+')"'}>
+      ${isToday(i)?'<span class="today-dot"></span>':''}
+      <span>${i}</span>
+      ${future?'':'<span class="cal-icon">'+s.icon+'</span>'}
+      ${(!future&&hrs>0)?'<span class="cal-hrs">'+fmtH(hrs)+'</span>':''}
+    </div>`;
+  }
+
+  let panel='';
+  if(selDay!==null){
+    const dk=calKey(selDay),rec=records[dk]||{};
+    const hrs=calcHours(rec.checkIn,rec.checkOut),earn=hrs*hourlyRate(),st=rec.status||'none';
+    const trow=`<div class="dp-time-row">
+      <div class="dp-tbox" onclick="openModal('${dk}','in')">
+        <div class="dp-tlbl">Check In</div>
+        <div class="dp-tval" style="color:${rec.checkIn?'#22c55e':'#475569'}">${fmtTime(rec.checkIn)}</div>
+        <div class="dp-thint">${rec.checkIn?'tap to edit':'tap to set'}</div>
+      </div>
+      <div style="flex:.7;background:#0f172a;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px">
+        <div style="font-size:17px;font-weight:900;color:#6366f1">${hrs>0?fmtH(hrs):'—'}</div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px">${hrs>0?settings.currency+earn.toFixed(0):''}</div>
+      </div>
+      <div class="dp-tbox" onclick="openModal('${dk}','out')">
+        <div class="dp-tlbl">Check Out</div>
+        <div class="dp-tval" style="color:${rec.checkOut?'#ef4444':'#475569'}">${fmtTime(rec.checkOut)}</div>
+        <div class="dp-thint">${rec.checkOut?'tap to edit':'tap to set'}</div>
+      </div>
+    </div>`;
+    const btns=Object.entries(STATUS).filter(([k])=>k!=='none').map(([k,sv])=>{
+      return `<button class="mark-btn" style="background:${sv.bg}22;color:${sv.color};${st===k?'border-color:'+sv.color:''}" onclick="markCalDay('${k}')">${sv.icon} ${sv.label}</button>`;
+    }).join('');
+    panel=`<div class="day-panel"><div class="dp-title">${MONTHS_S[curMonth]} ${selDay}</div>${trow}<div class="mark-grid">${btns}</div></div>`;
+  }
+
+  const st=calcStatsFor(curYear,curMonth);
+  return `<div class="month-nav"><button onclick="prevM()">&#8249;</button><span class="month-label">${MONTHS[curMonth]} ${curYear}</span><button onclick="nextM()">&#8250;</button></div>
+  <div class="day-headers">${hdrs}</div><div class="cal-grid">${emp}${days}</div>${panel}
+  <div class="qstats">
+    <div class="qpill"><div class="qnum" style="color:#6366f1">${fmtH(st.totalHours)}</div><div class="qlbl">Hours</div></div>
+    <div class="qpill"><div class="qnum" style="color:#22c55e">${st.present}</div><div class="qlbl">Present</div></div>
+    <div class="qpill"><div class="qnum" style="color:#ef4444">${st.absent}</div><div class="qlbl">Absent</div></div>
+    <div class="qpill"><div class="qnum" style="color:#f59e0b">${st.half}</div><div class="qlbl">Half</div></div>
+  </div>`;
+}
+
+function selCalDay(d){selDay=selDay===d?null:d;render()}
+function markCalDay(s){const dk=calKey(selDay);records[dk]={...(records[dk]||{}),status:s};saveRec();showToast(MONTHS_S[curMonth]+' '+selDay+' → '+STATUS[s].label);render();syncNow(true)}
+function prevM(){if(curMonth===0){curMonth=11;curYear--}else curMonth--;selDay=null;render()}
+function nextM(){if(curMonth===11){curMonth=0;curYear++}else curMonth++;selDay=null;render()}
+
+// ─── STATS ─────────────────────────────────────────────────────────────────
+function calcStatsFor(y,m){
+  const d=dim(y,m);let present=0,absent=0,half=0,leave=0,holiday=0,unmarked=0,totalHours=0;
+  for(let i=1;i<=d;i++){
+    if(!isPast(y,m,i)) continue;
+    const rec=records[dkey(y,m,i)]||{},st=rec.status||'none';
+    if(st==='present')present++;else if(st==='absent')absent++;
+    else if(st==='half')half++;else if(st==='leave')leave++;
+    else if(st==='holiday')holiday++;else unmarked++;
+    totalHours+=calcHours(rec.checkIn,rec.checkOut);
+  }
+  const hr=hourlyRate(),plu=Math.min(leave,settings.paidLeaves);
+  const earned=totalHours>0?totalHours*hr:(present+half*.5+plu)*(+settings.workHoursPerDay||8)*hr;
+  return{present,absent,half,leave,holiday,unmarked,totalHours,earned:Math.round(earned),plu};
+}
+
+function viewStats(){
+  const st=calcStatsFor(curYear,curMonth),c=settings.currency,hr=hourlyRate();
+  const rows=[
+    ["✓ Present",st.present,"#22c55e"],["✗ Absent",st.absent,"#ef4444"],
+    ["½ Half Day",st.half,"#f59e0b"],["L Leave",st.leave,"#8b5cf6"],
+    ["H Holiday",st.holiday,"#3b82f6"],["· Unmarked",st.unmarked,"#64748b"],
+  ].map(([l,v,col])=>`<div class="row-card"><span class="rc-l" style="color:${col}">${l}</span><span class="rc-v">${v}<span class="rc-u">days</span></span></div>`).join('');
+  return `<div class="month-nav"><button onclick="prevM()">&#8249;</button><span class="month-label">${MONTHS[curMonth]} ${curYear}</span><button onclick="nextM()">&#8250;</button></div>
+  <div class="salary-card">
+    <div class="sc-lbl">Estimated Earnings</div>
+    <div class="sc-amount">${c}${st.earned.toLocaleString('en-IN')}</div>
+    <div class="sc-sub">⏱ ${fmtH(st.totalHours)} logged &nbsp;·&nbsp; ${c}${hr.toFixed(0)}/hr</div>
+  </div>
+  ${rows}
+  <div class="bd-card">
+    <div class="bd-title">Breakdown</div>
+    <div class="bd-row"><span>Hourly rate</span><span class="bd-val">${c}${hr.toFixed(2)}/hr</span></div>
+    <div class="bd-row"><span>Total hours logged</span><span class="bd-val">${fmtH(st.totalHours)}</span></div>
+    <div class="bd-row"><span>Paid leaves used</span><span class="bd-val" style="color:#22c55e">${st.plu} / ${settings.paidLeaves}</span></div>
+    <div class="bd-row"><span>Estimated earned</span><span class="bd-val" style="color:#22c55e">${c}${st.earned.toLocaleString('en-IN')}</span></div>
+  </div>`;
+}
+
+// ─── SETTINGS ──────────────────────────────────────────────────────────────
+function viewSettings(){
+  const currs=['₹','$','€','£','¥'];
+  const cbtns=currs.map(c=>`<button class="cur-btn ${c===settings.currency?'sel':''}" onclick="setCur('${c}')">${c}</button>`).join('');
+  const mOn=settings.rateMode==='monthly',hOn=!mOn;
+  const syncInfo=settings.sheetUrl
+    ?`<div style="font-size:12px;color:#22c55e;margin-bottom:8px">✓ Connected to Google Sheet</div>
+       <div style="font-size:11px;color:#64748b;margin-bottom:10px;word-break:break-all">${settings.sheetUrl.slice(0,60)}...</div>`
+    :`<div style="font-size:12px;color:#f59e0b;margin-bottom:8px">⚠ Not connected yet</div>`;
+  return `<div style="font-weight:800;font-size:17px;margin-bottom:14px">Settings</div>
+  <div class="sc2">
+    <label class="sl">☁️ Google Sheet Sync</label>
+    ${syncInfo}
+    <input class="si" id="url-inp" placeholder="Paste Web App URL..." value="${settings.sheetUrl}" style="font-size:12px">
+    <button class="connect-btn" style="margin-top:8px;padding:11px;font-size:13px" onclick="reconnectSheet()">🔗 Connect / Reconnect</button>
+    ${settings.sheetUrl?`<button class="danger-btn" onclick="disconnectSheet()">🗑 Disconnect Sheet</button>`:''}
+  </div>
+  <div class="sc2">
+    <label class="sl">Salary Type</label>
+    <div class="seg">
+      <button class="seg-btn ${mOn?'on':''}" onclick="setRateMode('monthly')">Monthly Salary</button>
+      <button class="seg-btn ${hOn?'on':''}" onclick="setRateMode('hourly')">Hourly Rate</button>
+    </div>
+    ${mOn?`<label class="sl">Monthly Salary</label>
+      <input class="si" type="number" inputmode="numeric" value="${settings.monthlySalary}" onchange="settings.monthlySalary=+this.value;saveSet();render()">
+      <label class="sl" style="margin-top:12px">Work Hours/Day: <strong style="color:#f8fafc">${settings.workHoursPerDay}h</strong></label>
+      <input class="ri" type="range" min="1" max="16" value="${settings.workHoursPerDay}" oninput="settings.workHoursPerDay=+this.value;saveSet();render()">
+      <div class="rl2"><span>1h</span><span>16h</span></div>`
+    :`<label class="sl">Hourly Rate</label>
+      <input class="si" type="number" inputmode="numeric" value="${settings.hourlyRate}" onchange="settings.hourlyRate=+this.value;saveSet();render()">`}
+  </div>
+  <div class="sc2">
+    <label class="sl">Currency</label>
+    <div class="cur-row">${cbtns}</div>
+  </div>
+  <div class="sc2">
+    <label class="sl">Paid Leaves/Month: <strong style="color:#f8fafc">${settings.paidLeaves}</strong></label>
+    <input class="ri" type="range" min="0" max="15" value="${settings.paidLeaves}" oninput="settings.paidLeaves=+this.value;saveSet();render()">
+    <div class="rl2"><span>0</span><span>15 days</span></div>
+  </div>
+  <div class="info-c">
+    <div class="info-t">How sync works</div>
+    <div class="info-b">
+      • Data auto-saves locally first (works offline)<br>
+      • Syncs to Google Sheet on every check-in/out<br>
+      • Also syncs every 2 minutes if there are changes<br>
+      • Tap the sync badge at top to force sync<br>
+      • View & edit data directly in your Google Sheet
+    </div>
+  </div>`;
+}
+
+async function reconnectSheet(){
+  const url=document.getElementById('url-inp').value.trim();
+  if(!url||!url.includes('script.google.com')){showToast('Paste a valid Apps Script URL','err');return}
+  settings.sheetUrl=url;saveSet();
+  await pullFromSheet();
+  if(settings.connected){showToast('✓ Connected!');render()}
+  else showToast('Failed — check URL & deployment','err');
+}
+function disconnectSheet(){
+  if(!confirm('Disconnect Google Sheet? Local data stays safe.')) return;
+  settings.sheetUrl='';settings.connected=false;saveSet();render();
+}
+function setRateMode(m){settings.rateMode=m;saveSet();render()}
+function setCur(c){settings.currency=c;saveSet();render()}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+let toastT;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='show'+(type==='err'?' err-toast':'');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.className='',2600);
+}
+
+// ─── Service Worker ─────────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  const sw=`self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'})));
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+render();
+startTick();
+// Pull fresh data from sheet on load
+if(settings.sheetUrl) pullFromSheet();
+</script>
+</body>
+</html>
